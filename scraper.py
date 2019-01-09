@@ -25,8 +25,6 @@ for link in soup.find_all('a', download=True):
 
     df = read_pdf(link.get('href'), lattice=True)
 
-    print(df.columns.values)
-
     resultTable = pandas.DataFrame()
     if "Application Lodged" in title:
         resultTable['date_received'] = df.LODGED
@@ -43,8 +41,6 @@ for link in soup.find_all('a', download=True):
 
     resultTable['info_url'] = URL
     resultTable['comment_url'] = URL
-
-    print(resultTable.head())
 
     resultTable.to_sql(TABLE_NAME, con=engine, if_exists='append')
 
