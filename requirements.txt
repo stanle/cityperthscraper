@@ -1,0 +1,5 @@
+pandas
+tabula-py
+SQLAlchemy
+bs4
+requests
