@@ -15,8 +15,7 @@ PROCESSED_FILES_TABLE = "files_processed"
 PROCESSED_FILES_COLUMN = "name"
 
 engine = create_engine(f'sqlite:///{DATABASE}', echo=False)
-pd.DataFrame(columns=[PROCESSED_FILES_COLUMN]).to_sql(PROCESSED_FILES_TABLE, con=engine,
-                                                      if_exists="append")
+pd.DataFrame(columns=[PROCESSED_FILES_COLUMN]).to_sql(PROCESSED_FILES_TABLE, con=engine, if_exists="append")
 
 
 def make_first_row_header(df: pd.DataFrame) -> pd.DataFrame:
@@ -48,13 +47,14 @@ with Browser('chrome', options=chrome_options) as browser:
         title = link.html
         pdf_url = link["href"]
 
-        if len(engine.execute(f"SELECT 1 FROM {PROCESSED_FILES_TABLE} WHERE name=:title",
-                              dict(title=title)).fetchall()) > 0:
+        if len(engine.execute(f"SELECT 1 FROM {PROCESSED_FILES_TABLE} WHERE name=:title", dict(title=title)).fetchall()) > 0:
             print(f"==== read file {title} already")
             continue
 
         print(f"Downloading PDF for '{title}' - {pdf_url}")
-        dfs: List[pd.DataFrame] = read_pdf(pdf_url, lattice=True, pages="all",
+        dfs: List[pd.DataFrame] = read_pdf(pdf_url,
+                                           lattice=True,
+                                           pages="all",
                                            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
 
         final_df = pd.DataFrame()
@@ -74,8 +74,7 @@ with Browser('chrome', options=chrome_options) as browser:
                 and not df.empty and '' not in df.columns
                 and re.match('\d+/\d+/\d+', df.columns[0])
             ):
-                print(
-                    f"Table continuation detected. Converting header into record: {df.columns.values}")
+                print(f"Table continuation detected. Converting header into record: {df.columns.values}")
                 df.loc[-1] = df.columns  # adding a row
                 df.index = df.index + 1  # shifting index
                 df = df.sort_index()  # sorting by index
@@ -83,8 +82,7 @@ with Browser('chrome', options=chrome_options) as browser:
 
             # keep replacing heading for first row until we have column headers
             while (
-                not {"Decision Date", "Lodged", "Decision", "Decision Date",
-                     "DESCRIPTION"}.intersection(df.columns)
+                not {"Decision Date", "Lodged", "Decision", "Decision Date", "DESCRIPTION"}.intersection(df.columns)
                 and not df.empty
             ):
                 df = make_first_row_header(df)
@@ -103,8 +101,7 @@ with Browser('chrome', options=chrome_options) as browser:
             # in all headers getting concatenated into first header and an empty columns getting added
             left_header = df.columns[0].lower()
             if (
-                sum([1 for w in ["decision", "lodged", "decision", "description", "address"] if
-                     w in left_header]) > 2
+                sum([1 for w in ["decision", "lodged", "decision", "description", "address"] if w in left_header]) > 2
                 and df[df.columns[-1]].replace('', np.nan).isnull().all()
             ):
                 print("Re-aligning Columns")
@@ -119,8 +116,7 @@ with Browser('chrome', options=chrome_options) as browser:
 
         # drop rows with empty description columns
         df = final_df
-        for non_empty_col in ['Application Description', 'DESCRIPTION', 'Primary Property Address',
-                              'ADDRESS']:
+        for non_empty_col in ['Application Description', 'DESCRIPTION', 'Primary Property Address', 'ADDRESS']:
             if non_empty_col in df.columns:
                 df[non_empty_col].replace('', np.nan, inplace=True)
                 df.dropna(subset=[non_empty_col], inplace=True)
@@ -137,8 +133,9 @@ with Browser('chrome', options=chrome_options) as browser:
                 df.rename(columns={"LODGEMENT PROCESSED / RENEWED": "LODGED"}, inplace=True)
                 resultTable['date_received'] = df['LODGED']
                 resultTable['address'] = df['ADDRESS'].map(clean_address)
-                resultTable['description'] = "Application Lodged " + df['DESCRIPTION'].map(
-                    clean_description) + ", Value: " + df['VALUE'].map(str)
+                resultTable['description'] = "Application Lodged " \
+                                             + df['DESCRIPTION'].map(clean_description) \
+                                             + ", Value: " + df['VALUE'].map(str)
                 resultTable['council_reference'] = df['APPLICATION NUMBER']
             elif (
                 "Building Permits" in title
@@ -149,9 +146,9 @@ with Browser('chrome', options=chrome_options) as browser:
                 df.rename(columns={"App Year/Number": "Application Number"}, inplace=True)
                 resultTable['date_received'] = df['Decision Date']
                 resultTable['address'] = df['Primary Property Address'].map(clean_address)
-                resultTable['description'] = df['Application Description'].map(
-                    clean_description) + ", Value: " + df[
-                                                 'Est Value'] + ", Decision: " + df.Decision
+                resultTable['description'] = df['Application Description'].map(clean_description) \
+                                             + ", Value: " + df['Est Value'] \
+                                             + ", Decision: " + df.Decision
                 resultTable['council_reference'] = df['Application Number']
             else:
                 print(f"==== ignoring unkown pdf {title}")
@@ -165,6 +162,4 @@ with Browser('chrome', options=chrome_options) as browser:
             print(df)
             raise e
 
-        pd.DataFrame([title], columns=[PROCESSED_FILES_COLUMN]).to_sql(PROCESSED_FILES_TABLE,
-                                                                       con=engine,
-                                                                       if_exists="append")
+        pd.DataFrame([title], columns=[PROCESSED_FILES_COLUMN]).to_sql(PROCESSED_FILES_TABLE, con=engine, if_exists="append")
