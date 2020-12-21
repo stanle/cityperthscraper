@@ -3,3 +3,5 @@ tabula-py
 SQLAlchemy
 bs4
 requests
+selenium
+splinter>=0.7.3
