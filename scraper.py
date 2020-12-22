@@ -37,23 +37,14 @@ def clean_description(description: str) -> str:
     return description.replace("\r", " ")
 
 # can no longer use a simple request to get the page content. Need headless browser
-# chrome_options = ChromeOptions()
-# chrome_options.binary_location = '/usr/bin/google-chrome'
-# chrome_options.add_argument('--headless')
-# chrome_options.add_argument('--disable-gpu')
+chrome_options = ChromeOptions()
+chrome_options.binary_location = '/usr/bin/google-chrome'
+chrome_options.add_argument('--headless')
+chrome_options.add_argument('--disable-gpu')
 # chrome_options.add_argument('--disable-dev-shm-usage')
 # chrome_options.add_argument('--no-sandbox')
 
-# debugging only
-print("chromedriver: " + str(stat.S_IMODE(os.lstat('/usr/local/bin/chromedriver').st_mode)))
-print("chrome: " + str(stat.S_IMODE(os.lstat('/usr/bin/google-chrome').st_mode)))
-os.chmod('/usr/local/bin/chromedriver', 0o755)
-os.chmod('/usr/bin/google-chrome', 0o755)
-print("chromedriver: " + str(stat.S_IMODE(os.lstat('/usr/local/bin/chromedriver').st_mode)))
-print("chrome: " + str(stat.S_IMODE(os.lstat('/usr/bin/google-chrome').st_mode)))
-
-with Browser('chrome', executable_path='/usr/local/bin/chromedriver', headless=True) as browser:
-# with Browser('chrome', options=chrome_options) as browser:
+with Browser('chrome', options=chrome_options) as browser:
     browser.visit(URL)
     links = browser.find_by_css(".list-item > a")
     for link in links:
