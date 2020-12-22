@@ -1,4 +1,6 @@
+import os
 import re
+import stat
 from typing import List
 
 import numpy as np
@@ -41,6 +43,14 @@ def clean_description(description: str) -> str:
 # chrome_options.add_argument('--disable-gpu')
 # chrome_options.add_argument('--disable-dev-shm-usage')
 # chrome_options.add_argument('--no-sandbox')
+
+# debugging only
+print("chromedriver: " + stat.S_IMODE(os.lstat('/usr/local/bin/chromedriver').st_mode))
+print("chrome: " + stat.S_IMODE(os.lstat('/usr/bin/google-chrome').st_mode))
+os.chmod('/usr/local/bin/chromedriver', 0o755)
+os.chmod('/usr/bin/google-chrome', 0o755)
+print("chromedriver: " + stat.S_IMODE(os.lstat('/usr/local/bin/chromedriver').st_mode))
+print("chrome: " + stat.S_IMODE(os.lstat('/usr/bin/google-chrome').st_mode))
 
 with Browser('chrome', executable_path='/usr/local/bin/chromedriver', headless=True) as browser:
 # with Browser('chrome', options=chrome_options) as browser:
