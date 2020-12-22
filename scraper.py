@@ -34,12 +34,15 @@ def clean_address(address: str) -> str:
 def clean_description(description: str) -> str:
     return description.replace("\r", " ")
 
-# can no longer use a simple request to get the page content. Need to request with cookie
+# can no longer use a simple request to get the page content. Need headless browser
 chrome_options = ChromeOptions()
+chrome_options.binary_location = '/usr/bin/google-chrome'
 chrome_options.add_argument('--headless')
+chrome_options.add_argument('--disable-gpu')
 chrome_options.add_argument('--disable-dev-shm-usage')
 chrome_options.add_argument('--no-sandbox')
 
+# with Browser('chrome', executable_path='/usr/local/bin/chromedriver') as browser:
 with Browser('chrome', options=chrome_options) as browser:
     browser.visit(URL)
     links = browser.find_by_css(".list-item > a")
