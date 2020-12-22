@@ -44,8 +44,8 @@ chrome_options.add_argument('--disable-gpu')
 # chrome_options.add_argument('--disable-dev-shm-usage')
 # chrome_options.add_argument('--no-sandbox')
 
-with Browser('chrome', executable_path='/usr/local/bin/chromedriver', headless=True, options=chrome_options) as browser:
-# with Browser('chrome', options=chrome_options) as browser:
+# with Browser('chrome', executable_path='/usr/local/bin/chromedriver', headless=True, options=chrome_options) as browser:
+with Browser('chrome', options=chrome_options) as browser:
     browser.visit(URL)
     links = browser.find_by_css(".list-item > a")
     for link in links:
