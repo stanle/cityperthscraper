@@ -36,6 +36,9 @@ def clean_address(address: str) -> str:
 def clean_description(description: str) -> str:
     return description.replace("\r", " ")
 
+print(stat.filemode(os.stat('/usr/local/bin/chromedriver').st_mode))
+print(stat.filemode(os.stat('/usr/bin/google-chrome').st_mode))
+
 # can no longer use a simple request to get the page content. Need headless browser
 chrome_options = ChromeOptions()
 chrome_options.binary_location = '/usr/bin/google-chrome'
