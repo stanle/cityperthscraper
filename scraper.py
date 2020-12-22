@@ -36,6 +36,7 @@ def clean_address(address: str) -> str:
 def clean_description(description: str) -> str:
     return description.replace("\r", " ")
 
+print(os.getlogin())
 print(stat.filemode(os.stat('/usr/local/bin/chromedriver').st_mode))
 print(stat.filemode(os.stat('/usr/bin/google-chrome').st_mode))
 
