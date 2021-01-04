@@ -5,7 +5,9 @@ from typing import List
 
 import numpy as np
 import pandas as pd
-from selenium.webdriver import ChromeOptions
+# from selenium.webdriver import ChromeOptions
+from selenium.webdriver.chrome.options import Options
+
 from splinter import Browser
 from sqlalchemy import create_engine
 from tabula import read_pdf
@@ -41,15 +43,17 @@ print(stat.filemode(os.stat('/usr/local/bin/chromedriver').st_mode))
 print(stat.filemode(os.stat('/usr/bin/google-chrome').st_mode))
 
 # can no longer use a simple request to get the page content. Need headless browser
-chrome_options = ChromeOptions()
-chrome_options.binary_location = '/usr/bin/google-chrome'
-chrome_options.add_argument('--headless')
-chrome_options.add_argument('--disable-gpu')
-# chrome_options.add_argument('--disable-dev-shm-usage')
-# chrome_options.add_argument('--no-sandbox')
+# chrome_options = ChromeOptions()
+# chrome_options.binary_location = '/usr/bin/google-chrome'
+# chrome_options.add_argument('--headless')
+# chrome_options.add_argument('--disable-gpu')
+options = Options()
+options.add_argument('--disable-extensions')
+options.add_argument('--no-sandbox')
 
+with Browser('chrome', headless=True, options=options) as browser:
 # with Browser('chrome', executable_path='/usr/local/bin/chromedriver', headless=True, options=chrome_options) as browser:
-with Browser('chrome', options=chrome_options) as browser:
+# with Browser('chrome', options=chrome_options) as browser:
     browser.visit(URL)
     links = browser.find_by_css(".list-item > a")
     for link in links:
