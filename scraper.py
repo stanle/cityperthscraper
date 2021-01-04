@@ -136,15 +136,20 @@ with Browser('chrome', headless=True, options=options) as browser:
             else:
                 last_df = df
 
-        # drop rows with empty description columns
         df = final_df
-        for non_empty_col in ['Application Description', 'DESCRIPTION', 'Primary Property Address', 'ADDRESS']:
+
+        # header cleanup
+        df.columns = df.columns.map(lambda x: x.replace("\r", " "))
+        df.rename(columns={
+            "App Year/Number": "Application Number",
+            "LODGEMENT PROCESSED / RENEWED": "LODGED"}, inplace=True)
+
+        # drop rows with empty required fields
+        for non_empty_col in ['Application Description', 'DESCRIPTION', 'Primary Property Address', 'ADDRESS', 'Decision Date', 'LODGED']:
             if non_empty_col in df.columns:
                 df[non_empty_col].replace('', np.nan, inplace=True)
                 df.dropna(subset=[non_empty_col], inplace=True)
 
-        # header cleanup
-        df.columns = df.columns.map(lambda x: x.replace("\r", " "))
         print(title)
         print(df.head(1))
         print(df.columns.values)
@@ -152,7 +157,6 @@ with Browser('chrome', headless=True, options=options) as browser:
         try:
             resultTable = pd.DataFrame()
             if "Applications Lodged" in title and "Decision" not in df.columns:
-                df.rename(columns={"LODGEMENT PROCESSED / RENEWED": "LODGED"}, inplace=True)
                 resultTable['date_received'] = df['LODGED'].map(clean_received_date)
                 resultTable['address'] = df['ADDRESS'].map(clean_address)
                 resultTable['description'] = "Application Lodged " \
@@ -165,7 +169,6 @@ with Browser('chrome', headless=True, options=options) as browser:
                 or ("Applications Lodged" in title and "Decision" in df.columns)
                 or "Demolition Licenses Approved" in title
             ):
-                df.rename(columns={"App Year/Number": "Application Number"}, inplace=True)
                 resultTable['date_received'] = df['Decision Date'].map(clean_received_date)
                 resultTable['address'] = df['Primary Property Address'].map(clean_address)
                 resultTable['description'] = df['Application Description'].map(clean_description) \
