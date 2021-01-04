@@ -7,21 +7,19 @@ from typing import List
 
 import numpy as np
 import pandas as pd
-# from selenium.webdriver import ChromeOptions
+from selenium.webdriver import ChromeOptions
 import tabula
-from selenium.webdriver.chrome.options import Options
 
 from splinter import Browser
 from sqlalchemy import create_engine
 from tabula import read_pdf
-
-import tabula_custom
 
 # Note: work-around because the morph early_release image doesn't have java installed,
 # and the tabula _run() function has the java path hard-coded
 if not os.path.isfile("java") or not os.access("java", os.X_OK):
     print("Java not found. Installing JRE.")
     import jdk
+    import tabula_custom
     jre_dir = jdk.install('11', jre=True, path='/tmp/.jre')
     tabula.io._run = partial(tabula_custom._run, java_path=jre_dir + '/bin/java')
 
@@ -51,22 +49,13 @@ def clean_address(address: str) -> str:
 def clean_description(description: str) -> str:
     return description.replace("\r", " ")
 
-# print(os.popen('whoami').read())
-# print(stat.filemode(os.stat('/usr/local/bin/chromedriver').st_mode))
-# print(stat.filemode(os.stat('/usr/bin/google-chrome').st_mode))
-
-# can no longer use a simple request to get the page content. Need headless browser
-# chrome_options = ChromeOptions()
-# chrome_options.binary_location = '/usr/bin/google-chrome'
-# chrome_options.add_argument('--headless')
-# chrome_options.add_argument('--disable-gpu')
-options = Options()
-options.add_argument('--disable-extensions')
+# can not use simple request to get the page content. Need headless browser
+options = ChromeOptions()
+options.headless = True
 options.add_argument('--no-sandbox')
+options.add_argument('--disable-extensions')
 
 with Browser('chrome', headless=True, options=options) as browser:
-# with Browser('chrome', executable_path='/usr/local/bin/chromedriver', headless=True, options=chrome_options) as browser:
-# with Browser('chrome', options=chrome_options) as browser:
     browser.visit(URL)
     links = browser.find_by_css(".list-item > a")
     for link in links:
