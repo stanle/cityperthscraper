@@ -3,6 +3,7 @@ import re
 import stat
 from datetime import datetime
 from functools import partial
+from shutil import which
 from typing import List
 
 
@@ -17,7 +18,7 @@ from tabula import read_pdf
 
 # Note: work-around because the morph early_release image doesn't have java installed,
 # and the tabula _run() function has the java path hard-coded
-if not os.path.isfile("java") or not os.access("java", os.X_OK):
+if which("java") is None:
     print("Java not found. Installing JRE.")
     import jdk
     import tabula_custom
