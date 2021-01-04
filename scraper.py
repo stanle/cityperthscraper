@@ -156,6 +156,7 @@ with Browser('chrome', headless=True, options=options) as browser:
 
         try:
             resultTable = pd.DataFrame()
+            resultTable['date_scraped'] = datetime.today()
             if "Applications Lodged" in title and "Decision" not in df.columns:
                 resultTable['date_received'] = df['LODGED'].map(clean_received_date)
                 resultTable['address'] = df['ADDRESS'].map(clean_address)
