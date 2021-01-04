@@ -1,16 +1,29 @@
 import os
 import re
 import stat
+from functools import partial
 from typing import List
+
 
 import numpy as np
 import pandas as pd
 # from selenium.webdriver import ChromeOptions
+import tabula
 from selenium.webdriver.chrome.options import Options
 
 from splinter import Browser
 from sqlalchemy import create_engine
 from tabula import read_pdf
+
+import tabula_custom
+
+# Note: work-around because the morph early_release image doesn't have java installed,
+# and the tabula _run() function has the java path hard-coded
+if not os.path.isfile("java") or not os.access("java", os.X_OK):
+    print("Java not found. Installing JRE.")
+    import jdk
+    jre_dir = jdk.install('11', jre=True, path='/tmp/.jre')
+    tabula.io._run = partial(tabula_custom._run, java_path=jre_dir + '/bin/java')
 
 URL = "https://www.perth.wa.gov.au/develop/planning-and-building-applications/building-and-development-applications"
 DATABASE = "data.sqlite"
@@ -38,9 +51,9 @@ def clean_address(address: str) -> str:
 def clean_description(description: str) -> str:
     return description.replace("\r", " ")
 
-print(os.popen('whoami').read())
-print(stat.filemode(os.stat('/usr/local/bin/chromedriver').st_mode))
-print(stat.filemode(os.stat('/usr/bin/google-chrome').st_mode))
+# print(os.popen('whoami').read())
+# print(stat.filemode(os.stat('/usr/local/bin/chromedriver').st_mode))
+# print(stat.filemode(os.stat('/usr/bin/google-chrome').st_mode))
 
 # can no longer use a simple request to get the page content. Need headless browser
 # chrome_options = ChromeOptions()
