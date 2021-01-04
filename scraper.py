@@ -1,6 +1,7 @@
 import os
 import re
 import stat
+from datetime import datetime
 from functools import partial
 from typing import List
 
@@ -37,6 +38,11 @@ def make_first_row_header(df: pd.DataFrame) -> pd.DataFrame:
     df, df.columns = df[1:], df.iloc[0]
     return df
 
+def clean_received_date(date: str) -> datetime:
+    d, m, y = date.split("/")
+    if len(y) == 2:
+        y = f"20{y}"
+    return datetime(int(y), int(m), int(d))
 
 def clean_address(address: str) -> str:
     """
@@ -146,7 +152,7 @@ with Browser('chrome', headless=True, options=options) as browser:
             resultTable = pd.DataFrame()
             if "Applications Lodged" in title and "Decision" not in df.columns:
                 df.rename(columns={"LODGEMENT PROCESSED / RENEWED": "LODGED"}, inplace=True)
-                resultTable['date_received'] = df['LODGED']
+                resultTable['date_received'] = df['LODGED'].map(clean_received_date)
                 resultTable['address'] = df['ADDRESS'].map(clean_address)
                 resultTable['description'] = "Application Lodged " \
                                              + df['DESCRIPTION'].map(clean_description) \
@@ -159,7 +165,7 @@ with Browser('chrome', headless=True, options=options) as browser:
                 or "Demolition Licenses Approved" in title
             ):
                 df.rename(columns={"App Year/Number": "Application Number"}, inplace=True)
-                resultTable['date_received'] = df['Decision Date']
+                resultTable['date_received'] = df['Decision Date'].map(clean_received_date)
                 resultTable['address'] = df['Primary Property Address'].map(clean_address)
                 resultTable['description'] = df['Application Description'].map(clean_description) \
                                              + ", Value: " + df['Est Value'] \
@@ -169,7 +175,6 @@ with Browser('chrome', headless=True, options=options) as browser:
                 print(f"==== ignoring unkown pdf {title}")
 
             resultTable['info_url'] = pdf_url
-            resultTable['comment_url'] = pdf_url
             resultTable.to_sql(DATA_TABLE, con=engine, if_exists='append', index=False)
             print(f"Saved {len(resultTable)} records")
         except Exception as e:
