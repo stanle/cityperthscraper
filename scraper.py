@@ -1,17 +1,13 @@
-import os
 import re
-import stat
-from datetime import datetime
+from datetime import date
 from functools import partial
 from shutil import which
 from typing import List
 
-
 import numpy as np
 import pandas as pd
-from selenium.webdriver import ChromeOptions
 import tabula
-
+from selenium.webdriver import ChromeOptions
 from splinter import Browser
 from sqlalchemy import create_engine
 from tabula import read_pdf
@@ -39,11 +35,11 @@ def make_first_row_header(df: pd.DataFrame) -> pd.DataFrame:
     df, df.columns = df[1:], df.iloc[0]
     return df
 
-def clean_received_date(date: str) -> datetime:
-    d, m, y = date.split("/")
+def clean_received_date(dmy: str) -> date:
+    d, m, y = dmy.split("/")
     if len(y) == 2:
         y = f"20{y}"
-    return datetime(int(y), int(m), int(d))
+    return date(int(y), int(m), int(d))
 
 def clean_address(address: str) -> str:
     """
@@ -156,7 +152,6 @@ with Browser('chrome', headless=True, options=options) as browser:
 
         try:
             resultTable = pd.DataFrame()
-            resultTable['date_scraped'] = datetime.today()
             if "Applications Lodged" in title and "Decision" not in df.columns:
                 resultTable['date_received'] = df['LODGED'].map(clean_received_date)
                 resultTable['address'] = df['ADDRESS'].map(clean_address)
@@ -179,6 +174,7 @@ with Browser('chrome', headless=True, options=options) as browser:
             else:
                 print(f"==== ignoring unkown pdf {title}")
 
+            resultTable['date_scraped'] = date.today()
             resultTable['info_url'] = pdf_url
             resultTable.to_sql(DATA_TABLE, con=engine, if_exists='append', index=False)
             print(f"Saved {len(resultTable)} records")
