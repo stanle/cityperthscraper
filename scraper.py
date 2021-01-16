@@ -1,12 +1,25 @@
 import re
+from datetime import date
+from functools import partial
+from shutil import which
 from typing import List
 
 import numpy as np
 import pandas as pd
+import tabula
 from selenium.webdriver import ChromeOptions
 from splinter import Browser
 from sqlalchemy import create_engine
 from tabula import read_pdf
+
+# Note: work-around because the morph early_release image doesn't have java installed,
+# and the tabula _run() function has the java path hard-coded
+if which("java") is None:
+    print("Java not found. Installing JRE.")
+    import jdk
+    import tabula_custom
+    jre_dir = jdk.install('11', jre=True, path='/tmp/.jre')
+    tabula.io._run = partial(tabula_custom._run, java_path=jre_dir + '/bin/java')
 
 URL = "https://www.perth.wa.gov.au/develop/planning-and-building-applications/building-and-development-applications"
 DATABASE = "data.sqlite"
@@ -22,6 +35,11 @@ def make_first_row_header(df: pd.DataFrame) -> pd.DataFrame:
     df, df.columns = df[1:], df.iloc[0]
     return df
 
+def clean_received_date(dmy: str) -> date:
+    d, m, y = dmy.split("/")
+    if len(y) == 2:
+        y = f"20{y}"
+    return date(int(y), int(m), int(d))
 
 def clean_address(address: str) -> str:
     """
@@ -34,13 +52,13 @@ def clean_address(address: str) -> str:
 def clean_description(description: str) -> str:
     return description.replace("\r", " ")
 
-# can no longer use a simple request to get the page content. Need to request with cookie
-chrome_options = ChromeOptions()
-chrome_options.add_argument('--headless')
-chrome_options.add_argument('--disable-dev-shm-usage')
-chrome_options.add_argument('--no-sandbox')
+# can not use simple request to get the page content. Need headless browser
+options = ChromeOptions()
+options.headless = True
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-extensions')
 
-with Browser('chrome', options=chrome_options) as browser:
+with Browser('chrome', headless=True, options=options) as browser:
     browser.visit(URL)
     links = browser.find_by_css(".list-item > a")
     for link in links:
@@ -114,15 +132,20 @@ with Browser('chrome', options=chrome_options) as browser:
             else:
                 last_df = df
 
-        # drop rows with empty description columns
         df = final_df
-        for non_empty_col in ['Application Description', 'DESCRIPTION', 'Primary Property Address', 'ADDRESS']:
+
+        # header cleanup
+        df.columns = df.columns.map(lambda x: x.replace("\r", " "))
+        df.rename(columns={
+            "App Year/Number": "Application Number",
+            "LODGEMENT PROCESSED / RENEWED": "LODGED"}, inplace=True)
+
+        # drop rows with empty required fields
+        for non_empty_col in ['Application Description', 'DESCRIPTION', 'Primary Property Address', 'ADDRESS', 'Decision Date', 'LODGED']:
             if non_empty_col in df.columns:
                 df[non_empty_col].replace('', np.nan, inplace=True)
                 df.dropna(subset=[non_empty_col], inplace=True)
 
-        # header cleanup
-        df.columns = df.columns.map(lambda x: x.replace("\r", " "))
         print(title)
         print(df.head(1))
         print(df.columns.values)
@@ -130,8 +153,7 @@ with Browser('chrome', options=chrome_options) as browser:
         try:
             resultTable = pd.DataFrame()
             if "Applications Lodged" in title and "Decision" not in df.columns:
-                df.rename(columns={"LODGEMENT PROCESSED / RENEWED": "LODGED"}, inplace=True)
-                resultTable['date_received'] = df['LODGED']
+                resultTable['date_received'] = df['LODGED'].map(clean_received_date)
                 resultTable['address'] = df['ADDRESS'].map(clean_address)
                 resultTable['description'] = "Application Lodged " \
                                              + df['DESCRIPTION'].map(clean_description) \
@@ -143,8 +165,7 @@ with Browser('chrome', options=chrome_options) as browser:
                 or ("Applications Lodged" in title and "Decision" in df.columns)
                 or "Demolition Licenses Approved" in title
             ):
-                df.rename(columns={"App Year/Number": "Application Number"}, inplace=True)
-                resultTable['date_received'] = df['Decision Date']
+                resultTable['date_received'] = df['Decision Date'].map(clean_received_date)
                 resultTable['address'] = df['Primary Property Address'].map(clean_address)
                 resultTable['description'] = df['Application Description'].map(clean_description) \
                                              + ", Value: " + df['Est Value'] \
@@ -153,8 +174,8 @@ with Browser('chrome', options=chrome_options) as browser:
             else:
                 print(f"==== ignoring unkown pdf {title}")
 
+            resultTable['date_scraped'] = date.today()
             resultTable['info_url'] = pdf_url
-            resultTable['comment_url'] = pdf_url
             resultTable.to_sql(DATA_TABLE, con=engine, if_exists='append', index=False)
             print(f"Saved {len(resultTable)} records")
         except Exception as e:
