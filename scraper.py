@@ -21,7 +21,7 @@ if which("java") is None:
     jre_dir = jdk.install('11', jre=True, path='/tmp/.jre')
     tabula.io._run = partial(tabula_custom._run, java_path=jre_dir + '/bin/java')
 
-URL = "https://www.perth.wa.gov.au/develop/planning-and-building-applications/building-and-development-applications"
+URL = "https://perth.wa.gov.au/en/building-and-planning/planning-and-building-applications/building-and-development-applications"
 DATABASE = "data.sqlite"
 DATA_TABLE = "data"
 PROCESSED_FILES_TABLE = "files_processed"
@@ -61,6 +61,7 @@ options.add_argument('--disable-extensions')
 with Browser('chrome', headless=True, options=options) as browser:
     browser.visit(URL)
     links = browser.find_by_css(".list-item > a")
+    print(f"Found {len(links)} links")
     for link in links:
         title = link.html
         pdf_url = link["href"]
