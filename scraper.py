@@ -127,7 +127,7 @@ with Browser('chrome', headless=True, options=options) as browser:
                 df.columns = list(df.columns[1:]) + ['dummy']
                 df.drop(columns=df.columns[-1], inplace=True)
 
-            if len(df.columns) >= 6:
+            if len(df.columns) >= 5:
                 final_df = final_df.append(df)
                 last_df = None
             else:
@@ -139,7 +139,14 @@ with Browser('chrome', headless=True, options=options) as browser:
         df.columns = df.columns.map(lambda x: x.replace("\r", " "))
         df.rename(columns={
             "App Year/Number": "Application Number",
-            "LODGEMENT PROCESSED / RENEWED": "LODGED"}, inplace=True)
+            "Primary Propery Address": "Primary Property Address",
+            "LODGEMENT PROCESSED / RENEWED": "LODGED"
+        }, inplace=True)
+        if ('Unnamed: 0' in df.columns
+            and (not df[df['Unnamed: 0'].str.startswith('BPC')].empty
+                 or not df[df['Unnamed: 0'].str.startswith('DA')].empty
+            )):
+            df.rename(columns={"Unnamed: 0": "Application Number"}, inplace=True)
 
         # drop rows with empty required fields
         for non_empty_col in ['Application Description', 'DESCRIPTION', 'Primary Property Address', 'ADDRESS', 'Decision Date', 'LODGED']:
@@ -169,11 +176,11 @@ with Browser('chrome', headless=True, options=options) as browser:
                 resultTable['date_received'] = df['Decision Date'].map(clean_received_date)
                 resultTable['address'] = df['Primary Property Address'].map(clean_address)
                 resultTable['description'] = df['Application Description'].map(clean_description) \
-                                             + ", Value: " + df['Est Value'] \
+                                             + ", Value: " + df.get('Est Value', 'n/a') \
                                              + ", Decision: " + df.Decision
                 resultTable['council_reference'] = df['Application Number']
             else:
-                print(f"==== ignoring unkown pdf {title}")
+                print(f"==== ignoring unknown pdf {title}")
 
             resultTable['date_scraped'] = date.today()
             resultTable['info_url'] = pdf_url
