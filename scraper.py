@@ -3,6 +3,7 @@ from datetime import date
 from functools import partial
 from shutil import which
 from typing import List
+from urllib.error import HTTPError
 
 import numpy as np
 import pandas as pd
@@ -21,7 +22,7 @@ if which("java") is None:
     jre_dir = jdk.install('11', jre=True, path='/tmp/.jre')
     tabula.io._run = partial(tabula_custom._run, java_path=jre_dir + '/bin/java')
 
-URL = "https://www.perth.wa.gov.au/develop/planning-and-building-applications/building-and-development-applications"
+URL = "https://perth.wa.gov.au/en/building-and-planning/planning-and-building-applications/building-and-development-applications"
 DATABASE = "data.sqlite"
 DATA_TABLE = "data"
 PROCESSED_FILES_TABLE = "files_processed"
@@ -35,11 +36,13 @@ def make_first_row_header(df: pd.DataFrame) -> pd.DataFrame:
     df, df.columns = df[1:], df.iloc[0]
     return df
 
+
 def clean_received_date(dmy: str) -> date:
-    d, m, y = dmy.split("/")
+    d, m, y = dmy.replace(' ', '').split("/")
     if len(y) == 2:
         y = f"20{y}"
     return date(int(y), int(m), int(d))
+
 
 def clean_address(address: str) -> str:
     """
@@ -61,6 +64,7 @@ options.add_argument('--disable-extensions')
 with Browser('chrome', headless=True, options=options) as browser:
     browser.visit(URL)
     links = browser.find_by_css(".list-item > a")
+    print(f"Found {len(links)} links")
     for link in links:
         title = link.html
         pdf_url = link["href"]
@@ -70,20 +74,26 @@ with Browser('chrome', headless=True, options=options) as browser:
             continue
 
         print(f"Downloading PDF for '{title}' - {pdf_url}")
-        dfs: List[pd.DataFrame] = read_pdf(pdf_url,
-                                           lattice=True,
-                                           pages="all",
-                                           user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+        try:
+            dfs: List[pd.DataFrame] = read_pdf(pdf_url,
+                                               lattice=True,
+                                               pages="all",
+                                               user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+        except HTTPError as e:
+            print(f"Failed to download url - {e} ; skipping")
+            continue
 
         final_df = pd.DataFrame()
         last_df = None
-        for df in dfs:
+        for df_idx, df in enumerate(dfs):
             if df.empty:
                 continue
 
             # drop empty columns
             df.dropna(axis=1, how='all', inplace=True)
             df.fillna('', inplace=True)
+
+            probable_page_wrap = df_idx + 1 < len(dfs) and len(df.columns) > len(dfs[df_idx + 1].columns)
 
             # check if the table is a continuation from the previous page with the same columns and
             #  first rows having been read as header
@@ -100,7 +110,7 @@ with Browser('chrome', headless=True, options=options) as browser:
 
             # keep replacing heading for first row until we have column headers
             while (
-                not {"Decision Date", "Lodged", "Decision", "Decision Date", "DESCRIPTION"}.intersection(df.columns)
+                not {"Decision Date", "Lodged", "Decision", "DESCRIPTION"}.intersection(df.columns)
                 and not df.empty
             ):
                 df = make_first_row_header(df)
@@ -111,13 +121,15 @@ with Browser('chrome', headless=True, options=options) as browser:
                 df = last_df.merge(df, left_index=True, right_index=True)
                 if '' in df.columns:
                     empty_col = df.columns.get_loc('')
-                    df[df.columns[empty_col - 1]] = df[df.columns[empty_col - 1]] + df[
-                        df.columns[empty_col]]
+                    df[df.columns[empty_col - 1]] = df[df.columns[empty_col - 1]] + df[df.columns[empty_col]]
                     df.drop(columns=[''], inplace=True)
+
+            if df.empty:
+                continue
 
             # left-shift header and drop last column if header parsing failed, which often results
             # in all headers getting concatenated into first header and an empty columns getting added
-            left_header = df.columns[0].lower()
+            left_header = str(df.columns[0]).lower()
             if (
                 sum([1 for w in ["decision", "lodged", "decision", "description", "address"] if w in left_header]) > 2
                 and df[df.columns[-1]].replace('', np.nan).isnull().all()
@@ -126,7 +138,9 @@ with Browser('chrome', headless=True, options=options) as browser:
                 df.columns = list(df.columns[1:]) + ['dummy']
                 df.drop(columns=df.columns[-1], inplace=True)
 
-            if len(df.columns) >= 6:
+            if df.empty:
+                continue
+            elif not probable_page_wrap and len(df.columns) >= 5:
                 final_df = final_df.append(df)
                 last_df = None
             else:
@@ -138,7 +152,15 @@ with Browser('chrome', headless=True, options=options) as browser:
         df.columns = df.columns.map(lambda x: x.replace("\r", " "))
         df.rename(columns={
             "App Year/Number": "Application Number",
-            "LODGEMENT PROCESSED / RENEWED": "LODGED"}, inplace=True)
+            "Primary Propery Address": "Primary Property Address",
+            "LODGEMENT PROCESSED / RENEWED": "LODGED",
+            "PROCESSED / RENEWED": "LODGED",
+        }, inplace=True)
+        if ('Unnamed: 0' in df.columns
+            and (not df[df['Unnamed: 0'].str.startswith('BPC')].empty
+                 or not df[df['Unnamed: 0'].str.startswith('DA')].empty
+            )):
+            df.rename(columns={"Unnamed: 0": "Application Number"}, inplace=True)
 
         # drop rows with empty required fields
         for non_empty_col in ['Application Description', 'DESCRIPTION', 'Primary Property Address', 'ADDRESS', 'Decision Date', 'LODGED']:
@@ -152,7 +174,9 @@ with Browser('chrome', headless=True, options=options) as browser:
 
         try:
             resultTable = pd.DataFrame()
-            if "Applications Lodged" in title and "Decision" not in df.columns:
+            if df.empty:
+                print("Empty table. Saving anyway to prevent indefinite re-processing.")
+            elif "Applications Lodged" in title and "Decision" not in df.columns:
                 resultTable['date_received'] = df['LODGED'].map(clean_received_date)
                 resultTable['address'] = df['ADDRESS'].map(clean_address)
                 resultTable['description'] = "Application Lodged " \
@@ -168,11 +192,11 @@ with Browser('chrome', headless=True, options=options) as browser:
                 resultTable['date_received'] = df['Decision Date'].map(clean_received_date)
                 resultTable['address'] = df['Primary Property Address'].map(clean_address)
                 resultTable['description'] = df['Application Description'].map(clean_description) \
-                                             + ", Value: " + df['Est Value'] \
+                                             + ", Value: " + df.get('Est Value', 'n/a') \
                                              + ", Decision: " + df.Decision
                 resultTable['council_reference'] = df['Application Number']
             else:
-                print(f"==== ignoring unkown pdf {title}")
+                print(f"==== ignoring unknown pdf {title}")
 
             resultTable['date_scraped'] = date.today()
             resultTable['info_url'] = pdf_url
