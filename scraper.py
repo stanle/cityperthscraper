@@ -68,12 +68,18 @@ with Browser('chrome', headless=True, options=options) as browser:
     for link in links:
         title = link.html
         pdf_url = link["href"]
+        print()
+        print(f"working on '{title}' -- '{pdf_url}'")
 
         if len(engine.execute(f"SELECT 1 FROM {PROCESSED_FILES_TABLE} WHERE name=:title", dict(title=title)).fetchall()) > 0:
             print(f"==== read file {title} already")
             continue
 
-        print(f"Downloading PDF for '{title}' - {pdf_url}")
+        if not title or not pdf_url:
+            print(f"=== invalid title ({title}) or pdf url ({pdf_url})")
+            continue
+
+        print(f"Downloading PDF for '{title}' - '{pdf_url}'")
         try:
             dfs: List[pd.DataFrame] = read_pdf(pdf_url,
                                                lattice=True,
@@ -81,6 +87,10 @@ with Browser('chrome', headless=True, options=options) as browser:
                                                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
         except HTTPError as e:
             print(f"Failed to download url - {e} ; skipping")
+            continue
+        except Exception as e:
+            print("unknown error, - skipping")
+            print(e)
             continue
 
         final_df = pd.DataFrame()
