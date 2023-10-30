@@ -199,7 +199,10 @@ with Browser('chrome', headless=True, options=options) as browser:
                 or ("Applications Lodged" in title and "Decision" in df.columns)
                 or "Demolition Licenses Approved" in title
             ):
-                resultTable['date_received'] = df['Decision Date'].map(clean_received_date)
+                if 'Latest Decisio' in df.columns:
+                    resultTable['date_received'] = df['Latest Decisio'].map(clean_received_date)
+                else:
+                    resultTable['date_received'] = df['Decision Date'].map(clean_received_date)
                 resultTable['address'] = df['Primary Property Address'].map(clean_address)
                 resultTable['description'] = df['Application Description'].map(clean_description) \
                                              + ", Value: " + df.get('Est Value', 'n/a') \
