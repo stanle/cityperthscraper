@@ -65,11 +65,11 @@ with Browser('chrome', headless=True, options=options) as browser:
     browser.visit(URL)
     links = browser.find_by_css(".list-item > a")
     print(f"Found {len(links)} links")
-    for link in links:
+    for ii, link in enumerate(links):
         title = link.html
         pdf_url = link["href"]
         print()
-        print(f"working on '{title}' -- '{pdf_url}'")
+        print(f"{ii} working on '{title}' -- '{pdf_url}'")
 
         if len(engine.execute(f"SELECT 1 FROM {PROCESSED_FILES_TABLE} WHERE name=:title", dict(title=title)).fetchall()) > 0:
             print(f"==== read file {title} already")
